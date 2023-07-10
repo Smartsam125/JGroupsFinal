@@ -1,3 +1,6 @@
+import org.jgroups.BytesMessage;
+import org.jgroups.JChannel;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -5,9 +8,15 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.FileInputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class FilePathCopyApp extends JFrame {
+    public static JChannel channel= HomeView.ch;
     public  JTextField filePathField;
     private JButton openButton;
     private JButton copyButton;
@@ -51,12 +60,42 @@ public class FilePathCopyApp extends JFrame {
         copyButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e ) {
                 filePath = filePathField.getText();
+
                // System.out.println(filePath);
                 if (!filePath.isEmpty()) {
                     Toolkit.getDefaultToolkit().getSystemClipboard().setContents(
                             new StringSelection(filePath), null);
                     JOptionPane.showMessageDialog(FilePathCopyApp.this,
-                            "File Successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                            "File Sent!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                             try{
+                                 FileInputStream in=new FileInputStream(Path.of(filePath).toFile());
+
+                                 byte[] buf=new byte[8096];
+                                Connection conn= Db.connection();
+                                Path filename= Paths.get(filePath);
+
+
+                                 PreparedStatement pst = conn.prepareStatement("INSERT INTO coursematerial (filename,fileUri) VALUES (?, ?)");
+                                 pst.setString(1, filename.getFileName().toString());
+                                 System.out.println(filename.getFileName().toString());
+                                 //ResultSet rs=pst.executeQuery();
+                                 pst.setString(2, filePath);
+                                    pst.executeUpdate();
+                                 for(;;) {
+                                     int bytes=in.read(buf);
+                                     if(bytes == -1)
+                                         break;
+                                     channel.send(new BytesMessage(null, buf, 0, bytes));
+                                     System.out.println("File sent");
+
+
+                                 }
+
+                             }catch (Exception ex){
+                                 //System.out.println(ex.getCause());
+                                 //System.out.println(ex.getMessage());
+                                 ex.printStackTrace();
+                             }
 
 
 

@@ -1,12 +1,10 @@
-import org.jgroups.JChannel;
-import org.jgroups.Message;
-import org.jgroups.Receiver;
-import org.jgroups.View;
+import org.jgroups.*;
 import org.jgroups.protocols.*;
 import org.jgroups.protocols.pbcast.GMS;
 import org.jgroups.protocols.pbcast.NAKACK2;
 import org.jgroups.protocols.pbcast.STABLE;
 import org.jgroups.stack.Protocol;
+import org.jgroups.util.ByteArrayDataInputStream;
 import org.jgroups.util.Util;
 
 import javax.swing.*;
@@ -24,21 +22,26 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 public class HomeView extends JPanel {
     public static JChannel ch =null;
     public static DefaultListModel<String> chatModel;
-    private JList<String> chatList;
-    private JScrollPane chatScrollPane;
-    private JTextField messageField;
-    private JButton sendButton;
-    private JButton optionsButton;
-    private JButton exitButton;
-    private JButton joinButton;
-
+    public JList<String> chatList;
+    public JScrollPane chatScrollPane;
+    public JTextField messageField;
+    public JButton sendButton;
+    public JButton optionsButton;
+    public JButton exitButton;
+    public JButton joinButton;
+    public JButton All;
+   public static DefaultListModel<Address> l1 = new DefaultListModel<>();
     public  JPanel selectGroupPanel; // Reference to selectGroupPanel in SeShareApp
 
+   // private ImageIcon backgroundIcon; // Background image icon
+
     public HomeView() {
+
 
 
 
@@ -100,7 +103,8 @@ public class HomeView extends JPanel {
         exitButton.setVisible(false);
         buttonPanel.add(exitButton);
 
-        joinButton = new JButton("Join Distributed Systems");
+
+        joinButton = new JButton("ClickToJoin");
         joinButton.setFont(new Font("Arial", Font.BOLD, 14));
         joinButton.setBackground(new Color(0x0084FF));
         joinButton.setForeground(new Color(0xFFFFFF));
@@ -112,6 +116,12 @@ public class HomeView extends JPanel {
         searchButton.setForeground(new Color(0xFFFFFF));
         searchButton.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         buttonPanel.add(searchButton, BorderLayout.NORTH);
+        All= new JButton("All");
+        All.setFont(new Font("Arial", Font.BOLD, 14));
+        All.setBackground(new Color(0x0084FF));
+        All.setForeground(new Color(0xFFFFFF));
+        All.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        buttonPanel.add(All);
         optionsButton.addActionListener((new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -128,8 +138,7 @@ public class HomeView extends JPanel {
                 // Handle search button action
                 String searchText = JOptionPane.showInputDialog(null, "SearchForContent:", "Search", JOptionPane.PLAIN_MESSAGE);
                 if (searchText != null) {
-                 //Db databasequery = new Db();
-                // databasequery.
+
                    Connection conn= Db.connection();
                     try {
                         PreparedStatement pst = conn.prepareStatement("select fileUri,filename from coursematerial where filename like '%"+searchText+"%'");
@@ -185,13 +194,21 @@ public class HomeView extends JPanel {
         sendButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String message = messageField.getText().trim();
+
+
                 ch.setReceiver(new Receiver() {
                     @Override
                     public void receive(Message msg) {
                         System.out.println("<<  " + msg.getObject() + " [" + msg.getSrc() + "]");
                         chatModel.addElement( msg.getSrc().toString() +":"+ msg.getObject().toString());
 
+
+
                     }
+
+
+
+
 
 
                 });
@@ -215,11 +232,14 @@ public class HomeView extends JPanel {
 
         optionsButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                // Handle options button action (e.g., file sharing)
+                String outputDirectory="C:\\Users\\User\\Downloads\\Documents\\";
+
             }
         });
 
         exitButton.addActionListener(new ActionListener() {
+
+
             public void actionPerformed(ActionEvent e) {
 
                 SeShareApp sam = new SeShareApp();
@@ -227,9 +247,37 @@ public class HomeView extends JPanel {
                 JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(HomeView.this);
                 frame.getContentPane().remove(HomeView.this);
                 frame.dispose();
+                try {
+                   // ch.send(null, name + " has left the chat.");
+                    ch.setReceiver(new Receiver() {
+                        @Override
+                        public void viewAccepted(View new_view) {
+                            ch.disconnect();
+                            chatModel.addElement(new_view + " has left the chat");
+
+                        }
+                    });
+
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
 
 
-
+            }
+        });
+        All.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Connection conn= Db.connection();
+                try {
+                    PreparedStatement pst = conn.prepareStatement("select filename from coursematerial");
+                    ResultSet rs = pst.executeQuery();
+                    while (rs.next()) {
+                        chatModel.addElement(rs.getString("filename"));
+                    }
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
 
             }
         });
@@ -256,6 +304,10 @@ public class HomeView extends JPanel {
         // Show the Exit button
         exitButton.setVisible(true);
     }
+    private static void appendSystemMessage(String message) {
+        String formattedMessage = "<html><font color='green'>" + message + "</font></html>";
+        chatModel.addElement(formattedMessage);
+    }
     public static void joinDistributedSystems() throws  Exception {
         String name = JOptionPane.showInputDialog(null, "Enter your name:", "Name Input", JOptionPane.PLAIN_MESSAGE);
         Protocol[] prot_stack = {
@@ -274,18 +326,23 @@ public class HomeView extends JPanel {
                 new MFC(),
                 new FRAG2()
         };
+
          ch = new JChannel(prot_stack).name(name);
+
         ch.setReceiver(new Receiver() {
             public void viewAccepted(View new_view) {
-                // System.out.println("NewJoined" + new_view);
-                String joinMessage = new_view + " has joined";
-                chatModel.addElement(joinMessage);
-                //messagesBySam.appendText(joinMessage + "\n");
-                System.out.println(joinMessage);
+                List<Address> members = new_view.getMembers();
+                l1.clear();
+                for (Address member : members) {
+                    l1.addElement(member);
+                   // chatModel.addElement(member.toString()+" has joined");
+                    appendSystemMessage(member.toString() + " has joined");
+                }
             }
 
 
         });
+
 
         ch.connect("DistributedSystem");
 
@@ -294,4 +351,6 @@ public class HomeView extends JPanel {
 
 
     }
+
+
 }
