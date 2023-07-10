@@ -7,6 +7,25 @@
     <groupId>org.example</groupId>
     <artifactId>JGroupsFinalProject</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <build>
+        <plugins>
+            <plugin>
+                <!-- Build an executable JAR -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>4.0.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                            <mainClass></mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
    <dependencies>
            <dependency>
                 <groupId>org.jgroups</groupId>
@@ -18,6 +37,11 @@
            <artifactId>mysql-connector-j</artifactId>
            <version>8.0.32</version>
        </dependency>
+       <dependency>
+           <groupId>org.bytedeco</groupId>
+           <artifactId>javacv-platform</artifactId>
+           <version>1.5.9</version>
+       </dependency>
 
    </dependencies>
     <properties>
@@ -25,5 +49,6 @@
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
 
 </project>
